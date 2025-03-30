@@ -1,6 +1,7 @@
 import { User } from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/token.js";
+import nodemailer from "nodemailer";
 
 export const userSignup = async (req, res, next) => {
     try {
@@ -120,17 +121,32 @@ export const userProfieUpdate = async (req, res, next) => {
     }
 };
 
+
 export const userProfileDeactivate = async (req, res, next) => {
     try {
-        const {email} = req.body
+        const { email } = req.body;
+
+        // Check if user exists
         const userExist = await User.findOne({ email });
-        if (!userExist.isActive) {
-            return res.status(401).json({ message: "user account is deactivated" });
+        if (!userExist) {
+            return res.status(404).json({ message: "User not found" });
         }
+
+        // Check if user is already deactivated
+        if (!userExist.isActive) {
+            return res.status(400).json({ message: "User account is already deactivated" });
+        }
+
+        // Deactivate user
+        userExist.isActive = false;
+        await userExist.save();
+
+        res.json({ message: "User account deactivated successfully" });
     } catch (error) {
-        res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
+        res.status(500).json({ message: error.message || "Internal server error" });
     }
 };
+
 
 export const userLogout = async (req, res, next) => {
     try {
@@ -149,5 +165,107 @@ export const checkUser = async (req, res, next) => {
         res.json({  message: "user autherized" });
     } catch (error) {
         res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
+    }
+};
+
+export const userProfileDelete = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+
+        // Check if user exists
+        const userExist = await User.findOne({ email });
+        if (!userExist) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Delete user from database
+        await User.findOneAndDelete({ email });
+
+        res.json({ message: "User account deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Internal server error" });
+    }
+};
+
+export const userDeactivate = async (req, res, next) => {
+    try {
+        const userId = req.user.id; // Extract userId from authenticated request
+
+        // Check if user exists
+        const userExist = await User.findById(userId);
+        if (!userExist) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Check if the user is already deactivated
+        if (!userExist.isActive) {
+            return res.status(400).json({ message: "User account is already deactivated" });
+        }
+
+        // Deactivate user account
+        userExist.isActive = false;
+        await userExist.save();
+
+        res.json({ message: "User account deactivated successfully" });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Internal server error" });
+    }
+};
+
+
+// ✅ Forgot Password
+export const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        // Check if user exists
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        // Generate Password Reset Token
+        const resetToken = generateToken(user._id, "user");
+
+        // Send Email with Reset Link
+        const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: { user: "your_email@gmail.com", pass: "your_email_password" },
+        });
+
+        const resetLink = `http://localhost:3002/reset-password/${resetToken}`;
+        await transporter.sendMail({
+            from: "your_email@gmail.com",
+            to: email,
+            subject: "Password Reset Request",
+            html: `<p>Click the link to reset your password: <a href="${resetLink}">Reset Password</a></p>`,
+        });
+
+        res.json({ message: "Password reset link sent" });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Internal server error" });
+    }
+};
+
+// ✅ Reset Password
+export const resetPassword = async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { newPassword, confirmPassword } = req.body;
+
+        // Verify token
+        const decoded = verifyToken(token);
+        if (!decoded) return res.status(400).json({ message: "Invalid or expired token" });
+
+        // Check passwords match
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ message: "Passwords do not match" });
+        }
+
+        // Hash new password and update user
+        const hashedPassword = bcrypt.hashSync(newPassword, 10);
+        await User.findByIdAndUpdate(decoded.userId, { password: hashedPassword });
+
+        res.json({ message: "Password reset successfully" });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Internal server error" });
     }
 };

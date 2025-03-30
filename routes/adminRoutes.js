@@ -1,5 +1,6 @@
 import e from "express";
-import { adminLogin, adminSignup } from "../controllers/adminControllers.js";
+import { adminLogin, adminSignup, adminProfile, adminProfileUpdate, adminProfileDeactivate, adminLogout, checkAdmin } from "../controllers/adminControllers.js";
+import { authAdmin } from "../middlewares/authAdmin.js";
 
 const router = e.Router();
 
@@ -10,24 +11,25 @@ router.post("/signup", adminSignup);
 router.put("/login", adminLogin);
 
 //profile
-router.get("/profile");
+router.get("/profile",authAdmin, adminProfile);
 
 //profile-edit
-router.put("/update");
+router.put("/update", authAdmin, adminProfileUpdate);
 
 //profile-deactivate
-router.put("/deactivate");
+router.put("/deactivate", adminProfileDeactivate);
 
 //delete
-router.delete("/delete-account");
+//router.delete("/delete-account", profileDelete);
 
 //logout
-router.get("/logout");
+router.get("/logout", adminLogout);
 
 //password-forgot
 //password-change
 //address update
 
 //check-user
+router.get("/check-admin", authAdmin, checkAdmin);
 
 export { router as adminRouter };

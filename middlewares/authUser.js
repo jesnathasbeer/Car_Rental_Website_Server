@@ -4,10 +4,10 @@ export const authUser = (req, res, next) => {
     try {
         //collect token from cookies.
         const { token } = req.cookies;
-console.log(req.cookies)
+
 
         if (!token) {
-            return res.status(401).json({ message: "user not autherized" });
+            return res.status(401).json({ message: "user not authorized" });
         }
 
         //decode token
@@ -15,7 +15,7 @@ console.log(req.cookies)
         console.log(decodedToken, "=========Decoded token");
 
         if (!decodedToken) {
-            return res.status(401).json({ message: "user not autherized" });
+            return res.status(401).json({ message: "user not authorized" });
         }
 
         req.user = decodedToken;

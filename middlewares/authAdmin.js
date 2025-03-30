@@ -4,9 +4,9 @@ export const authAdmin = (req, res, next) => {
     try {
         //collect token from cookies.
         const { token } = req.cookies;
-
+    
         if (!token) {
-            return res.status(401).json({ message: "user not authorized" });
+            return res.status(401).json({ message: "admin not authorized" });
         }
 
         //decode token
@@ -14,11 +14,11 @@ export const authAdmin = (req, res, next) => {
         console.log(decodedToken, "=========Decoded token");
 
         if (!decodedToken) {
-            return res.status(401).json({ message: "user not authorized" });
+            return res.status(401).json({ message: "admin not authorized" });
         }
         
         if( decodedToken.role!=="admin"){
-            return res.status(401).json({ message: "user not authorized" });
+            return res.status(401).json({ message: "admin not authorized" });
         }
 
         req.user = decodedToken;

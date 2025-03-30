@@ -1,5 +1,5 @@
 import e from "express";
-import { checkUser, userLogin, userLogout, userProfieUpdate, userProfile, userSignup, userProfileDeactivate } from "../controllers/userControllers.js";
+import { checkUser, userLogin, userLogout, userProfieUpdate, userProfile, userSignup, userProfileDeactivate, userProfileDelete, userDeactivate } from "../controllers/userControllers.js";
 import { authUser } from "../middlewares/authUser.js";
 import { authAdmin } from "../middlewares/authAdmin.js";
 
@@ -21,16 +21,22 @@ router.put("/update", authUser, userProfieUpdate);
 router.put("/deactivate", userProfileDeactivate);
 
 //delete
-router.delete("/delete-account");
+router.delete("/delete-account", userProfileDelete);
 
 //logout
 router.get("/logout", userLogout);
 
 //password-forgot
+//router.post("/forgot-password", authUser, forgotPassword);
+
+//reset-password
+//router.post("/reset-password/:token",authUser, resetPassword)
+
 //password-change
 //address update
 
-router.put("/deactivate-user/:userId", authAdmin);
+//deactivate-user
+router.put("/deactivate-user/:userId", authAdmin, userDeactivate);
 
 //check-user
 router.get("/check-user", authUser, checkUser);

@@ -1,12 +1,13 @@
 
 import { Admin } from "../models/adminModel.js";
+import { User } from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/token.js";
 
 export const adminSignup = async (req, res, next) => {
     try {
         //collect user data
-        const { name, email, password, confirmPassword, mobile, profilePic } = req.body;
+        const { name, email, password, confirmPassword, mobile, profilePic, role } = req.body;
 
         //data validation
         if (!name || !email || !password || !confirmPassword || !mobile) {
@@ -14,9 +15,9 @@ export const adminSignup = async (req, res, next) => {
         }
 
         //check if already exist
-        const userExist = await Admin.findOne({ email });
+        const adminExist = await Admin.findOne({ email });
 
-        if (userExist) {
+        if (adminExist) {
             return res.status(400).json({ message: "user already exist" });
         }
 
@@ -29,14 +30,14 @@ export const adminSignup = async (req, res, next) => {
         const hashedPassword = bcrypt.hashSync(password, 10);
 
         //save to db
-        const newUser = new Admin({ name, email, password: hashedPassword, mobile, profilePic });
-        await newUser.save();
+        const newAdmin = new Admin({ name, email, password: hashedPassword, mobile, profilePic, role });
+        await newAdmin.save();
 
         //generate token usig Id and role
-        const token = generateToken(newUser._id, "admin");
+        const token = generateToken(newAdmin._id, "admin");
         res.cookie("token", token);
 
-        res.json({ data: newUser, message: "signup success" });
+        res.json({ data: newAdmin, message: "signup success" });
     } catch (error) {
         res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
         console.log(error);
@@ -45,41 +46,127 @@ export const adminSignup = async (req, res, next) => {
 
 export const adminLogin = async (req, res, next) => {
     try {
-        //collect user data
-        const { email, password, confirmPassword } = req.body;
+        // Collect user data
+        const { email, password } = req.body;
 
-        //data validation
-        if (!email || !password || !confirmPassword) {
-            return res.status(400).json({ message: "all fields required" });
+        // Data validation
+        if (!email || !password) {
+            return res.status(400).json({ message: "All fields are required" });
         }
 
-        if (password !== confirmPassword) {
-            return res.status(400).json({ message: "password not same" });
+        // Check if admin exists
+        const adminExist = await Admin.findOne({ email, role: "admin" }); // ✅ Check for role: "admin"
+        if (!adminExist) {
+            return res.status(404).json({ message: "Admin not found" });
         }
 
-        // user exist - check
-        const userExist = await User.findOne({ email });
-
-        if (!userExist) {
-            return res.status(404).json({ message: "user not found" });
-        }
-
-        //password match with DB
-        const passwordMatch = bcrypt.compareSync(password, userExist.password);
-
+        // Password match with DB
+        const passwordMatch = bcrypt.compareSync(password, adminExist.password);
         if (!passwordMatch) {
-            return res.status(401).json({ message: "invalid credentials" });
+            return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        if (!userExist.isActive) {
-            return res.status(401).json({ message: "user account is not account" });
+        // Check if admin is active
+        if (!adminExist.isActive) {
+            return res.status(403).json({ message: "Admin account is not active" });
         }
 
-        //generate token
-        const token = generateToken(userExist._id, "user");
-        res.cookie("token", token);
+        // Generate token
+        const token = generateToken(adminExist._id, "admin"); // ✅ Assign "admin" role
+        res.cookie("token", token, { httpOnly: true });
 
-        res.json({ data: userExist, message: "Login success" });
+        res.json({ data: adminExist, message: "Admin login successful" });
+    } catch (error) {
+        console.error("Admin Login Error:", error); // ✅ Log error for debugging
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const adminProfile = async (req, res, next) => {
+    try {
+        //user Id
+        const adminId = req.user.id;
+        console.log(adminId)
+        const adminData = await Admin.findById(adminId).select("-password");
+
+        res.json({ data: adminData, message: "user profile fetched" });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
+    }
+};
+
+
+
+// export const adminProfile = async (req, res, next) => {
+//     try {
+//         //admin Id
+//         const adminId = req.admin.id;
+//         const adminData = await User.findById(adminId).select("-password");
+
+//         res.json({ data: adminData, message: "admin profile fetched" });
+//     } catch (error) {
+//         res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
+//     }
+// };
+
+export const adminProfileUpdate = async (req, res, next) => {
+    try {
+        const { name, email, password, confirmPassword, mobile, profilePic, role } = req.body;
+
+        //user Id
+        const adminId = req.user.id;
+        const adminData = await Admin.findByIdAndUpdate(
+            adminId,
+            { name, email, password, confirmPassword, mobile, profilePic, role },
+            { new: true }
+        );
+
+        res.json({ data: adminData, message: "admin profile fetched" });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
+    }
+};
+
+ export const adminProfileDeactivate = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+
+        // Check if user exists
+        const adminExist = await Admin.findOne({ email });
+        if (!adminExist) {
+            return res.status(404).json({ message: "Admin not found" });
+        }
+
+        // Check if user is already deactivated
+        if (!adminExist.isActive) {
+            return res.status(400).json({ message: "Admin account is already deactivated" });
+        }
+
+        // Deactivate user
+        adminExist.isActive = false;
+        await adminExist.save();
+
+        res.json({ message: "User account deactivated successfully" });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Internal server error" });
+    }
+ };
+
+export const adminLogout = async (req, res, next) => {
+    try {
+        res.clearCookie("token");
+
+        res.json({  message: "admin logout success" });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
+    }
+};
+
+
+export const checkAdmin = async (req, res, next) => {
+    try {
+
+        res.json({  message: "admin authorized" });
     } catch (error) {
         res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
     }
