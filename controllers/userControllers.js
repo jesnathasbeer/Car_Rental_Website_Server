@@ -161,8 +161,11 @@ export const userLogout = async (req, res, next) => {
 
 export const checkUser = async (req, res, next) => {
     try {
-
-        res.json({  message: "user autherized" });
+        res.status(200).json({
+            message: "User authorized",
+            user: req.user, // ← send user to frontend
+          });
+        // res.json({  message: "user autherized" });
     } catch (error) {
         res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
     }

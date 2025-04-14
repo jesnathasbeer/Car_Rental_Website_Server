@@ -11,6 +11,22 @@ export async function getAllCars(req, res) {
     }
 }
 
+export async function getCarById(req, res) {
+    try {
+        const { id } = req.params;
+        const car = await Car.findById(id); // Find car by ID
+
+        if (!car) {
+            return res.status(404).json({ message: "Car not found" });
+        }
+
+        res.json(car);
+    } catch (error) {
+        console.error("Error fetching car details:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+}
+
 // Add a new car (Admin only)
 export async function addCar(req, res) {
     try {
