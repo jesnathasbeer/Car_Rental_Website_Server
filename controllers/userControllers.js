@@ -3,6 +3,8 @@ import bcrypt from "bcrypt";
 import { generateToken } from "../utils/token.js";
 import nodemailer from "nodemailer";
 
+const NODE_ENV = process.env.NODE_ENV;
+
 export const userSignup = async (req, res, next) => {
     try {
         //collect user data
@@ -34,7 +36,11 @@ export const userSignup = async (req, res, next) => {
 
         //generate token usig Id and role
         const token = generateToken(newUser._id, "user");
-        res.cookie("token", token);
+        res.cookie("token", token,{
+            sameSite: NODE_ENV === "production" ? "None" : "Lax",
+            secure: NODE_ENV === "production",
+            httpOnly: NODE_ENV === "production",
+        });
 
         res.json({ data: newUser, message: "signup success" });
     } catch (error) {
@@ -77,7 +83,11 @@ export const userLogin = async (req, res, next) => {
 
         //generate token
         const token = generateToken(userExist._id, "user");
-        res.cookie("token", token);
+        res.cookie("token", token, {
+            sameSite: NODE_ENV === "production" ? "None" : "Lax",
+            secure: NODE_ENV === "production",
+            httpOnly: NODE_ENV === "production",
+        });
 
         delete userExist._doc.password;
         res.json({ data: userExist, message: "Login success" });
@@ -150,7 +160,11 @@ export const userProfileDeactivate = async (req, res, next) => {
 
 export const userLogout = async (req, res, next) => {
     try {
-        res.clearCookie("token");
+        res.clearCookie("token",{
+            sameSite: NODE_ENV === "production" ? "None" : "Lax",
+            secure: NODE_ENV === "production",
+            httpOnly: NODE_ENV === "production",
+        });
 
         res.json({  message: "user logout success" });
     } catch (error) {
