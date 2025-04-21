@@ -1,8 +1,9 @@
 
 import { Admin } from "../models/adminModel.js";
-import { User } from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/token.js";
+
+const NODE_ENV = process.env.NODE_ENV;
 
 export const adminSignup = async (req, res, next) => {
     try {
@@ -35,7 +36,11 @@ export const adminSignup = async (req, res, next) => {
 
         //generate token usig Id and role
         const token = generateToken(newAdmin._id, "admin");
-        res.cookie("token", token);
+        res.cookie("token", token, {
+            sameSite: NODE_ENV === "production" ? "None" : "Lax",
+            secure: NODE_ENV === "production",
+            httpOnly: NODE_ENV === "production",
+        });
 
         res.json({ data: newAdmin, message: "signup success" });
     } catch (error) {
@@ -73,7 +78,11 @@ export const adminLogin = async (req, res, next) => {
 
         // Generate token
         const token = generateToken(adminExist._id, "admin"); // ✅ Assign "admin" role
-        res.cookie("token", token, { httpOnly: true });
+        res.cookie("token", token, {
+            sameSite: NODE_ENV === "production" ? "None" : "Lax",
+            secure: NODE_ENV === "production",
+            httpOnly: NODE_ENV === "production",
+        });
 
         res.json({ data: adminExist, message: "Admin login successful" });
     } catch (error) {
@@ -154,7 +163,11 @@ export const adminProfileUpdate = async (req, res, next) => {
 
 export const adminLogout = async (req, res, next) => {
     try {
-        res.clearCookie("token");
+        res.clearCookie("token", {
+            sameSite: NODE_ENV === "production" ? "None" : "Lax",
+            secure: NODE_ENV === "production",
+            httpOnly: NODE_ENV === "production",
+        });
 
         res.json({  message: "admin logout success" });
     } catch (error) {
