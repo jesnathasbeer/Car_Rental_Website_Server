@@ -2,14 +2,16 @@ import { User } from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/token.js";
 import nodemailer from "nodemailer";
+import { cloudinaryInstance } from '../config/cloudinary.js';
 
 const NODE_ENV = process.env.NODE_ENV;
 
 export const userSignup = async (req, res, next) => {
     try {
         //collect user data
-        const { name, email, password, confirmPassword, mobile, profilePic } = req.body;
+        const { name, email, password, confirmPassword, mobile } = req.body;
 
+        const cloudinaryRes = await cloudinaryInstance.uploader.upload(req.file.path);
         //data validation
         if (!name || !email || !password || !confirmPassword || !mobile) {
             return res.status(400).json({ message: "all fields required" });
@@ -31,7 +33,7 @@ export const userSignup = async (req, res, next) => {
         const hashedPassword = bcrypt.hashSync(password, 10);
 
         //save to db
-        const newUser = new User({ name, email, password: hashedPassword, mobile, profilePic });
+        const newUser = new User({ name, email, password: hashedPassword, mobile, image: cloudinaryRes.url, });
         await newUser.save();
 
         //generate token usig Id and role
