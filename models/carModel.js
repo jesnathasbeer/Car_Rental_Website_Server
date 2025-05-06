@@ -5,6 +5,9 @@ const carSchema = new Schema({
     type: String,
     priceperday: Number,
     image: String,
+    mileage: String,
+    description: String,
+    dateadded: String,
     available: Boolean,
 });
 

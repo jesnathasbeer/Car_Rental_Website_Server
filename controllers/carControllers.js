@@ -31,7 +31,7 @@ export async function getCarById(req, res) {
 export async function addCar(req, res) {
     try {
        //  const newCar = new Car(req.body);
-         const { name, type, priceperday, available } = req.body;
+         const { name, type, priceperday, mileage, description, dateadded, available } = req.body;
 
         // console.log(req.file,"-----req.file")
 
@@ -43,6 +43,9 @@ export async function addCar(req, res) {
              name,
              type,
              priceperday,
+             mileage,
+             description,
+             dateadded,
              image: cloudinaryRes.url,
              available,
          });
@@ -62,9 +65,9 @@ export async function addCar(req, res) {
         const { id } = req.params; // Get car ID from request parameters
         const car = await Car.findById(id);
         console.log(car);
-         const {name, type, priceperday, image, available} = req.body; // Get update data from request body
+         const {name, type, priceperday, mileage, description, dateadded, image, available} = req.body; // Get update data from request body
 
-         const updatedCar = await Car.findByIdAndUpdate(id, {name, type, priceperday, image, available}, { new: true, runValidators: true });
+         const updatedCar = await Car.findByIdAndUpdate(id, {name, type, priceperday, mileage, description, dateadded, image, available}, { new: true, runValidators: true });
         if (!updatedCar) {
              return res.status(404).json({ message: "Car not found" });
          }
