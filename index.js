@@ -12,7 +12,7 @@ connectDB();
 
 app.use(
     cors({
-        origin: ["http://localhost:5173", "https://car-rental-website-client-pi.vercel.app/"],
+        origin: ["http://localhost:5173", "https://car-rental-website-client-pi.vercel.app"],
         credentials: true,
         methods: ["GET", "POST", "PUT", "DELETE", "OPTION"],
     })
