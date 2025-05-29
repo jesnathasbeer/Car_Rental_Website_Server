@@ -3,36 +3,67 @@ import Car from "../models/carModel.js";
 import Stripe from "stripe";
 const stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// 🚗 **Checkout & Create Order**
+// ✅ Checkout and payment
 export async function checkout(req, res) {
   try {
-    const { carId, rentalDays, pickupDate, returnDate, paymentMethodId, name, email, pickupLocation, dropoffLocation } = req.body;
-
-    //const userId = req.user.id; // Authenticated user
+    const {
+      carId,
+      pickupDate,
+      returnDate,
+      paymentMethodId,
+      name,
+      email,
+      pickupLocation,
+      dropoffLocation,
+    } = req.body;
 
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
+    if (!carId || !pickupDate || !returnDate || !paymentMethodId) {
+      return res.status(400).json({ error: "Missing required booking details" });
+    }
 
-    // Check if car exists
     const car = await Car.findById(carId);
     if (!car) return res.status(404).json({ error: "Car not found" });
 
-    const totalAmount = rentalDays * car.pricePerDay;
+    const price = Number(car.pricePerDay);
+    if (isNaN(price) || price <= 0) {
+      return res.status(400).json({ error: "Invalid car price" });
+    }
 
-    // Create payment intent in Stripe
-    const paymentIntent = await stripeInstance.paymentIntents.create({
-      amount: totalAmount * 100, // Convert to cents
-      currency: "usd",
-      payment_method: paymentMethodId,
-      confirm: true,
-    });
+    const start = new Date(pickupDate);
+    const end = new Date(returnDate);
 
-    // Create order in DB
+    if (isNaN(start) || isNaN(end)) {
+      return res.status(400).json({ error: "Invalid pickup or return date" });
+    }
+
+    const rentalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    if (rentalDays <= 0) {
+      return res.status(400).json({ error: "Invalid rental period" });
+    }
+
+    const totalAmount = rentalDays * price;
+    const amountInCents = Math.round(totalAmount * 100);
+
+    let paymentIntent;
+    try {
+      paymentIntent = await stripeInstance.paymentIntents.create({
+        amount: amountInCents,
+        currency: "usd",
+        payment_method: paymentMethodId,
+        payment_method_types: ["card"],
+        confirm: true,
+      });
+    } catch (stripeErr) {
+      console.error("Stripe error:", stripeErr);
+      return res.status(500).json({ error: stripeErr.message || "Stripe payment failed" });
+    }
+
     const order = new Order({
       user: userId,
       car: carId,
-      rentalDays,
       totalAmount,
       pickupDate,
       returnDate,
@@ -54,20 +85,20 @@ export async function checkout(req, res) {
   }
 }
 
-// 📄 **Get Order Details**
+
+// 📄 Get Order Details
 export async function getOrderDetails(req, res) {
   try {
     const order = await Order.findById(req.params.id).populate("car user");
-
     if (!order) return res.status(404).json({ error: "Order not found" });
-
     res.status(200).json({ order });
   } catch (error) {
+    console.error("Get order error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 }
 
-// ❌ **Cancel Order**
+// ❌ Cancel Order
 export async function cancelOrder(req, res) {
   try {
     const { id } = req.params;
@@ -75,11 +106,15 @@ export async function cancelOrder(req, res) {
 
     if (!order) return res.status(404).json({ error: "Order not found" });
 
-    // Refund logic (if applicable)
     if (order.paymentStatus === "paid") {
-      await stripeInstance.refunds.create({
-        payment_intent: order.paymentIntentId,
-      });
+      try {
+        await stripeInstance.refunds.create({
+          payment_intent: order.paymentIntentId,
+        });
+      } catch (refundErr) {
+        console.error("Refund error:", refundErr);
+        return res.status(500).json({ error: "Failed to process refund" });
+      }
     }
 
     order.status = "cancelled";
@@ -87,13 +122,19 @@ export async function cancelOrder(req, res) {
 
     res.status(200).json({ message: "Order cancelled", order });
   } catch (error) {
+    console.error("Cancel order error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 }
 
-// POST /api/payment/create-payment-intent
+// 🧾 Payment Intent for client secret (optional)
 export async function payment(req, res) {
   const { amount } = req.body;
+
+  if (typeof amount !== "number" || isNaN(amount) || amount <= 0) {
+    return res.status(400).send({ error: "Invalid amount" });
+  }
+
   try {
     const paymentIntent = await stripeInstance.paymentIntents.create({
       amount,
@@ -102,15 +143,15 @@ export async function payment(req, res) {
     });
     res.send({ clientSecret: paymentIntent.client_secret });
   } catch (err) {
+    console.error("Create payment intent error:", err);
     res.status(500).send({ error: err.message });
   }
 }
 
-
-// POST /api/orders
+// 🗂️ Create Order without payment (alternative flow)
 export async function bookingStatus(req, res) {
   try {
-    const userId = req.user?.id || req.body.user; // Use from token if authenticated
+    const userId = req.user?.id || req.body.user;
 
     const newOrder = new Order({
       ...req.body,
@@ -122,10 +163,5 @@ export async function bookingStatus(req, res) {
   } catch (err) {
     console.error("Booking error:", err);
     res.status(500).send("Error saving booking");
-
-
-
   }
 }
-
-

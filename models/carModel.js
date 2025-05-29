@@ -3,7 +3,7 @@ import { Schema, model } from 'mongoose';
 const carSchema = new Schema({
     name: String,
     type: String,
-    priceperday: Number,
+    pricePerDay: Number,
     image: String,
     mileage: String,
     description: String,
