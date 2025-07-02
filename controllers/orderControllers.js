@@ -1,6 +1,7 @@
 import Order from "../models/orderModel.js";
 import Car from "../models/carModel.js";
 import Stripe from "stripe";
+
 const stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // ✅ Checkout and payment
@@ -27,14 +28,13 @@ export async function checkout(req, res) {
     const car = await Car.findById(carId);
     if (!car) return res.status(404).json({ error: "Car not found" });
 
-    const price = Number(car.pricePerDay);
+    const price = Number(car.priceperday);
     if (isNaN(price) || price <= 0) {
       return res.status(400).json({ error: "Invalid car price" });
     }
 
     const start = new Date(pickupDate);
     const end = new Date(returnDate);
-
     if (isNaN(start) || isNaN(end)) {
       return res.status(400).json({ error: "Invalid pickup or return date" });
     }
@@ -64,27 +64,30 @@ export async function checkout(req, res) {
     const order = new Order({
       user: userId,
       car: carId,
+      rentalDays,
       totalAmount,
       pickupDate,
       returnDate,
-      name,
-      email,
       pickupLocation,
       dropoffLocation,
       paymentIntentId: paymentIntent.id,
+      paymentMethodId,
       paymentStatus: "paid",
       status: "confirmed",
+      customerDetails: {
+        fullName: name,
+        email,
+        phoneNumber: "N/A", // You can update if collecting phone number
+      },
     });
 
     await order.save();
-
     res.status(201).json({ message: "Order placed successfully", order });
   } catch (error) {
     console.error("Checkout error:", error);
     res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 }
-
 
 // 📄 Get Order Details
 export async function getOrderDetails(req, res) {
@@ -103,7 +106,6 @@ export async function cancelOrder(req, res) {
   try {
     const { id } = req.params;
     const order = await Order.findById(id);
-
     if (!order) return res.status(404).json({ error: "Order not found" });
 
     if (order.paymentStatus === "paid") {
@@ -119,7 +121,6 @@ export async function cancelOrder(req, res) {
 
     order.status = "cancelled";
     await order.save();
-
     res.status(200).json({ message: "Order cancelled", order });
   } catch (error) {
     console.error("Cancel order error:", error);
@@ -127,7 +128,7 @@ export async function cancelOrder(req, res) {
   }
 }
 
-// 🧾 Payment Intent for client secret (optional)
+// 🧾 Payment Intent (optional flow)
 export async function payment(req, res) {
   const { amount } = req.body;
 
@@ -148,7 +149,7 @@ export async function payment(req, res) {
   }
 }
 
-// 🗂️ Create Order without payment (alternative flow)
+// 🗂️ Create Order without payment (admin/manual flow)
 export async function bookingStatus(req, res) {
   try {
     const userId = req.user?.id || req.body.user;
@@ -165,3 +166,39 @@ export async function bookingStatus(req, res) {
     res.status(500).send("Error saving booking");
   }
 }
+
+// 📋 Get all bookings for current user
+// export async function getMyBookings(req, res) {
+//   try {
+//     const userId = req.user?.id;
+//     if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+//     const bookings = await Order.find({ user: userId }).populate("car");
+
+//     res.status(200).json({ bookings });
+//   } catch (error) {
+//     console.error("Get user bookings error:", error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// }
+
+export async function getMyBookings(req, res) {
+  try {
+    console.log("Decoded user:", req.user); // 👈 check if user is available
+
+    const userId = req.user?.id;
+    if (!userId) {
+      console.log("No userId found");
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const bookings = await Order.find({ user: userId }).populate("car");
+    console.log("Fetched bookings:", bookings);
+
+    res.status(200).json({ bookings });
+  } catch (error) {
+    console.error("Get user bookings error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+}
+

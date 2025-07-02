@@ -26,12 +26,8 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "paid", "failed"],
       default: "pending",
     },
-    paymentIntentId: {
-      type: String,
-    },
-    paymentMethodId: {
-      type: String,
-    },
+    paymentIntentId: String,
+    paymentMethodId: String,
     status: {
       type: String,
       enum: ["pending", "confirmed", "cancelled"],
@@ -45,6 +41,8 @@ const orderSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    pickupLocation: String,
+    dropoffLocation: String,
     customerDetails: {
       fullName: {
         type: String,
@@ -56,12 +54,11 @@ const orderSchema = new mongoose.Schema(
       },
       phoneNumber: {
         type: String,
-        required: true,
+        default: "N/A",
       },
     },
   },
   { timestamps: true }
 );
 
-const Order = mongoose.model("Order", orderSchema);
-export default Order;
+export default mongoose.model("Order", orderSchema);

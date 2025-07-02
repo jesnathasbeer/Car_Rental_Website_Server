@@ -52,56 +52,56 @@ export const userSignup = async (req, res, next) => {
 };
 
 export const userLogin = async (req, res, next) => {
-    try {
-        //collect user data
-        const { email, password, confirmPassword } = req.body;
+  try {
+    const { email, password } = req.body; // ✅ No confirmPassword here
 
-        //data validation
-        if (!email || !password || !confirmPassword) {
-            return res.status(400).json({ message: "all fields required" });
-        }
-
-        if (password !== confirmPassword) {
-            return res.status(400).json({ message: "password not same" });
-        }
-
-        // user exist - check
-        const userExist = await User.findOne({ email });
-
-        if (!userExist) {
-            return res.status(404).json({ message: "user not found" });
-        }
-
-        //password match with DB
-        const passwordMatch = bcrypt.compareSync(password, userExist.password);
-
-        if (!passwordMatch) {
-            return res.status(401).json({ message: "invalid credentials" });
-        }
-
-        if (!userExist.isActive) {
-            return res.status(401).json({ message: "user account is not active" });
-        }
-
-        //generate token
-        const token = generateToken(userExist._id, "user");
-        res.cookie("token", token, {
-            sameSite: NODE_ENV === "production" ? "None" : "Lax",
-            secure: NODE_ENV === "production",
-            httpOnly: NODE_ENV === "production",
-        });
-
-        delete userExist._doc.password;
-        res.json({ data: userExist, message: "Login success" });
-
-        // {
-        //     const { password, ...userDataWithoutPassword } = userExist;
-        // res.json({ data: userDataWithoutPassword, message: "Login success" });
-        // }
-    } catch (error) {
-        res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
+    // 1. Validate input
+    if (!email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
     }
+
+    // 2. Find user
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // 3. Check account active
+    if (!user.isActive) {
+      return res.status(403).json({ message: "User account is not active" });
+    }
+
+    // 4. Verify password
+    const isMatch = bcrypt.compareSync(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // 5. Generate token
+    const token = generateToken(user._id, "user");
+
+    // 6. Set httpOnly cookie
+    res.cookie("token", token, {
+      sameSite: NODE_ENV === "production" ? "None" : "Lax",
+      secure: NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    });
+
+    // 7. Return user data (without password)
+    const { password: _, ...userWithoutPassword } = user._doc;
+
+    res.status(200).json({
+      data: userWithoutPassword,
+      message: "Login success",
+    });
+
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ message: error.message || "Internal server error" });
+  }
 };
+
 
 export const userProfile = async (req, res, next) => {
     try {
