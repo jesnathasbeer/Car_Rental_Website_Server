@@ -184,9 +184,14 @@ export async function bookingStatus(req, res) {
 
 export async function getMyBookings(req, res) {
   try {
-    console.log("Decoded user:", req.user); // 👈 check if user is available
 
-    const userId = req.user?.id;
+    // console.log("Decoded user:", req.user); //  check if user is available
+
+    // const userId = req.user?.id;
+
+    console.log("Decoded user:", req.user); 
+    const userId = req.user?.id || req.user?._id || req.user;
+
     if (!userId) {
       console.log("No userId found");
       return res.status(401).json({ error: "Unauthorized" });

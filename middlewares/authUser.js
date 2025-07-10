@@ -14,11 +14,16 @@ export const authUser = (req, res, next) => {
         const decodedToken = jwt.verify(token, process.env.JWT_SECRET_KEY);
         console.log(decodedToken, "=========Decoded token");
 
+       
+req.user = { id: decodedToken.id || decodedToken._id || decodedToken };
+
         if (!decodedToken) {
             return res.status(401).json({ message: "user not authorized" });
         }
 
-        req.user = decodedToken;
+       // req.user = decodedToken;
+        req.user = { id: decodedToken.id || decodedToken._id || decodedToken };
+console.log("Cookies received:", req.cookies);
 
         //check
         next();
