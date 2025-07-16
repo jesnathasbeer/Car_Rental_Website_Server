@@ -38,7 +38,7 @@ export const userSignup = async (req, res, next) => {
 
         //generate token usig Id and role
         const token = generateToken(newUser._id, "user");
-        res.cookie("token", token,{
+        res.cookie("token", token, {
             sameSite: NODE_ENV === "production" ? "None" : "Lax",
             secure: NODE_ENV === "production",
             httpOnly: NODE_ENV === "production",
@@ -53,42 +53,36 @@ export const userSignup = async (req, res, next) => {
 
 export const userLogin = async (req, res, next) => {
   try {
-    const { email, password } = req.body; // ✅ No confirmPassword here
+    const { email, password } = req.body;
 
-    // 1. Validate input
     if (!email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // 2. Find user
-    const user = await User.findOne({ email });
+    // ✅ Include password explicitly
+    const user = await User.findOne({ email }).select("+password");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 3. Check account active
     if (!user.isActive) {
       return res.status(403).json({ message: "User account is not active" });
     }
 
-    // 4. Verify password
-    const isMatch = bcrypt.compareSync(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // 5. Generate token
     const token = generateToken(user._id, "user");
 
-    // 6. Set httpOnly cookie
     res.cookie("token", token, {
       sameSite: NODE_ENV === "production" ? "None" : "Lax",
       secure: NODE_ENV === "production",
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      maxAge: 24 * 60 * 60 * 1000,
     });
 
-    // 7. Return user data (without password)
     const { password: _, ...userWithoutPassword } = user._doc;
 
     res.status(200).json({
@@ -115,23 +109,34 @@ export const userProfile = async (req, res, next) => {
     }
 };
 
-export const userProfieUpdate = async (req, res, next) => {
+
+export const userProfileUpdate = async (req, res, next) => {
     try {
-        const { name, email, password, confirmPassword, mobile, profilePic } = req.body;
-
-        //user Id
+        const { name, email, mobile } = req.body;
         const userId = req.user.id;
-        const userData = await User.findByIdAndUpdate(
-            userId,
-            { name, email, password, confirmPassword, mobile, profilePic },
-            { new: true }
-        );
 
-        res.json({ data: userData, message: "user profile fetched" });
+        // Prepare update fields
+        const updateFields = { name, email, mobile };
+
+        // Handle image upload to Cloudinary
+        if (req.file) {
+            const cloudinaryRes = await cloudinaryInstance.uploader.upload(req.file.path);
+            updateFields.image = cloudinaryRes.url;
+        }
+
+        // Update user in DB
+        const updatedUser = await User.findByIdAndUpdate(userId, updateFields, {
+            new: true,
+        }).select("-password");
+
+        res.json({ data: updatedUser, message: "User profile updated successfully" });
+
     } catch (error) {
-        res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
+        console.error("Profile update failed:", error);
+        res.status(error.statusCode || 500).json({ message: error.message || "Internal server error" });
     }
 };
+
 
 
 export const userProfileDeactivate = async (req, res, next) => {
@@ -162,13 +167,13 @@ export const userProfileDeactivate = async (req, res, next) => {
 
 export const userLogout = async (req, res, next) => {
     try {
-        res.clearCookie("token",{
+        res.clearCookie("token", {
             sameSite: NODE_ENV === "production" ? "None" : "Lax",
             secure: NODE_ENV === "production",
             httpOnly: NODE_ENV === "production",
         });
 
-        res.json({  message: "user logout success" });
+        res.json({ message: "user logout success" });
     } catch (error) {
         res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
     }
@@ -180,7 +185,7 @@ export const checkUser = async (req, res, next) => {
         res.status(200).json({
             message: "User authorized",
             user: req.user, // ← send user to frontend
-          });
+        });
         // res.json({  message: "user autherized" });
     } catch (error) {
         res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
@@ -207,29 +212,30 @@ export const userProfileDelete = async (req, res, next) => {
 };
 
 export const userDeactivate = async (req, res, next) => {
-    try {
-        const userId = req.user.id; // Extract userId from authenticated request
+  try {
+    const userId = req.user.id;
 
-        // Check if user exists
-        const userExist = await User.findById(userId);
-        if (!userExist) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        // Check if the user is already deactivated
-        if (!userExist.isActive) {
-            return res.status(400).json({ message: "User account is already deactivated" });
-        }
-
-        // Deactivate user account
-        userExist.isActive = false;
-        await userExist.save();
-
-        res.json({ message: "User account deactivated successfully" });
-    } catch (error) {
-        res.status(500).json({ message: error.message || "Internal server error" });
+    const userExist = await User.findById(userId);
+    if (!userExist) {
+      return res.status(404).json({ message: "User not found" });
     }
+
+    if (!userExist.isActive) {
+      return res.status(400).json({ message: "User account is already deactivated" });
+    }
+
+    userExist.isActive = false;
+    await userExist.save();
+
+    // Optionally clear auth cookie if you're using it
+    res.clearCookie("token");
+
+    return res.json({ message: "User account deactivated successfully" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Internal server error" });
+  }
 };
+
 
 
 // ✅ Forgot Password
@@ -264,27 +270,25 @@ export const forgotPassword = async (req, res) => {
     }
 };
 
-// ✅ Reset Password
-export const resetPassword = async (req, res) => {
-    try {
-        const { token } = req.params;
-        const { newPassword, confirmPassword } = req.body;
+export const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
 
-        // Verify token
-        const decoded = verifyToken(token);
-        if (!decoded) return res.status(400).json({ message: "Invalid or expired token" });
+    const user = await User.findById(userId).select("+password");
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-        // Check passwords match
-        if (newPassword !== confirmPassword) {
-            return res.status(400).json({ message: "Passwords do not match" });
-        }
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(400).json({ message: "Current password is incorrect" });
 
-        // Hash new password and update user
-        const hashedPassword = bcrypt.hashSync(newPassword, 10);
-        await User.findByIdAndUpdate(decoded.userId, { password: hashedPassword });
+    // ✅ Set the new password directly, let Mongoose hash it in pre-save hook
+    user.password = newPassword;
+    await user.save();
 
-        res.json({ message: "Password reset successfully" });
-    } catch (error) {
-        res.status(500).json({ message: error.message || "Internal server error" });
-    }
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    console.error("❌ Error in changePassword:", error);
+    res.status(500).json({ message: error.message || "Server error" });
+  }
 };
+

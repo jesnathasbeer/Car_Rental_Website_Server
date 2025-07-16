@@ -1,5 +1,5 @@
 import e from "express";
-import { checkUser, userLogin, userLogout, userProfieUpdate, userProfile, userSignup, userProfileDeactivate, userProfileDelete, userDeactivate } from "../controllers/userControllers.js";
+import {changePassword, checkUser, userLogin, userLogout, userProfileUpdate, userProfile, userSignup, userProfileDeactivate, userProfileDelete, userDeactivate } from "../controllers/userControllers.js";
 import { authUser } from "../middlewares/authUser.js";
 import { authAdmin } from "../middlewares/authAdmin.js";
 import { upload } from '../middlewares/multer.js';
@@ -16,7 +16,7 @@ router.put("/login", userLogin);
 router.get("/profile", authUser, userProfile);
 
 //profile-edit
-router.put("/update", authUser, userProfieUpdate);
+router.put("/update-profile", authUser, upload.single("image") , userProfileUpdate);
 
 //profile-deactivate
 router.put("/deactivate", userProfileDeactivate);
@@ -30,14 +30,12 @@ router.get("/logout", userLogout);
 //password-forgot
 //router.post("/forgot-password", authUser, forgotPassword);
 
-//reset-password
-//router.post("/reset-password/:token",authUser, resetPassword)
-
 //password-change
-//address update
+// router.post("/change-password", authUser, changePassword);
+router.post("/change-password", authUser, changePassword);
 
 //deactivate-user
-router.put("/deactivate-user/:userId", authAdmin, userDeactivate);
+router.put("/deactivate-user", authUser, userDeactivate);
 
 //check-user
 router.get("/check-user", authUser, checkUser);
