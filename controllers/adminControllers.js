@@ -2,6 +2,9 @@
 import { Admin } from "../models/adminModel.js";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/token.js";
+import { User } from "../models/userModel.js";
+import carModel from "../models/carModel.js";
+import orderModel from "../models/orderModel.js";
 
 const NODE_ENV = process.env.NODE_ENV;
 
@@ -91,33 +94,6 @@ export const adminLogin = async (req, res, next) => {
     }
 };
 
-export const adminProfile = async (req, res, next) => {
-    try {
-        //user Id
-        const adminId = req.user.id;
-        console.log(adminId)
-        const adminData = await Admin.findById(adminId).select("-password");
-
-        res.json({ data: adminData, message: "user profile fetched" });
-    } catch (error) {
-        res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
-    }
-};
-
-
-
-// export const adminProfile = async (req, res, next) => {
-//     try {
-//         //admin Id
-//         const adminId = req.admin.id;
-//         const adminData = await User.findById(adminId).select("-password");
-
-//         res.json({ data: adminData, message: "admin profile fetched" });
-//     } catch (error) {
-//         res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
-//     }
-// };
-
 export const adminProfileUpdate = async (req, res, next) => {
     try {
         const { name, email, password, confirmPassword, mobile, profilePic, role } = req.body;
@@ -183,4 +159,31 @@ export const checkAdmin = async (req, res, next) => {
     } catch (error) {
         res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
     }
+};
+
+
+export const getAdminStats = async (req, res) => {
+  try {
+    const [totalCars, totalUsers, totalBookings, allBookings] = await Promise.all([
+      carModel.countDocuments(),
+      User.countDocuments({ role: "user" }), // count only normal users
+      orderModel.countDocuments(),
+      orderModel.find({}, "totalAmount") // fetch only totalAmount field
+    ]);
+
+    const totalRevenue = allBookings.reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
+
+    return res.json({
+      data: {
+        totalCars,
+        totalUsers,
+        totalBookings,
+        totalRevenue,
+      },
+      message: "Dashboard stats fetched",
+    });
+  } catch (error) {
+    console.error("Error fetching admin stats:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
 };

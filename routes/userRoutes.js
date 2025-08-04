@@ -28,10 +28,9 @@ router.delete("/delete-account", userProfileDelete);
 router.get("/logout", userLogout);
 
 //password-forgot
-//router.post("/forgot-password", authUser, forgotPassword);
+//router.post("/forgot-password", forgotPassword);
 
 //password-change
-// router.post("/change-password", authUser, changePassword);
 router.post("/change-password", authUser, changePassword);
 
 //deactivate-user

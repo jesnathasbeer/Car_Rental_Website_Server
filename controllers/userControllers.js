@@ -239,36 +239,36 @@ export const userDeactivate = async (req, res, next) => {
 
 
 // ✅ Forgot Password
-export const forgotPassword = async (req, res) => {
-    try {
-        const { email } = req.body;
+// export const forgotPassword = async (req, res) => {
+//     try {
+//         const { email } = req.body;
 
-        // Check if user exists
-        const user = await User.findOne({ email });
-        if (!user) return res.status(404).json({ message: "User not found" });
+//         // Check if user exists
+//         const user = await User.findOne({ email });
+//         if (!user) return res.status(404).json({ message: "User not found" });
 
-        // Generate Password Reset Token
-        const resetToken = generateToken(user._id, "user");
+//         // Generate Password Reset Token
+//         const resetToken = generateToken(user._id, "user");
 
-        // Send Email with Reset Link
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: { user: "your_email@gmail.com", pass: "your_email_password" },
-        });
+//         // Send Email with Reset Link
+//         const transporter = nodemailer.createTransport({
+//             service: "gmail",
+//             auth: { user: "your_email@gmail.com", pass: "your_email_password" },
+//         });
 
-        const resetLink = `http://localhost:3002/reset-password/${resetToken}`;
-        await transporter.sendMail({
-            from: "your_email@gmail.com",
-            to: email,
-            subject: "Password Reset Request",
-            html: `<p>Click the link to reset your password: <a href="${resetLink}">Reset Password</a></p>`,
-        });
+//         const resetLink = `http://localhost:3002/reset-password/${resetToken}`;
+//         await transporter.sendMail({
+//             from: "your_email@gmail.com",
+//             to: email,
+//             subject: "Password Reset Request",
+//             html: `<p>Click the link to reset your password: <a href="${resetLink}">Reset Password</a></p>`,
+//         });
 
-        res.json({ message: "Password reset link sent" });
-    } catch (error) {
-        res.status(500).json({ message: error.message || "Internal server error" });
-    }
-};
+//         res.json({ message: "Password reset link sent" });
+//     } catch (error) {
+//         res.status(500).json({ message: error.message || "Internal server error" });
+//     }
+// };
 
 export const changePassword = async (req, res) => {
   try {
