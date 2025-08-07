@@ -11,7 +11,12 @@ export const userSignup = async (req, res, next) => {
         //collect user data
         const { name, email, password, confirmPassword, mobile } = req.body;
 
-        const cloudinaryRes = await cloudinaryInstance.uploader.upload(req.file.path);
+        if (req.file)
+        {
+          var cloudinaryRes = await cloudinaryInstance.uploader.upload(req.file.path);
+        }
+        
+        
         //data validation
         if (!name || !email || !password || !confirmPassword || !mobile) {
             return res.status(400).json({ message: "all fields required" });
@@ -33,7 +38,14 @@ export const userSignup = async (req, res, next) => {
         const hashedPassword = bcrypt.hashSync(password, 10);
 
         //save to db
-        const newUser = new User({ name, email, password: hashedPassword, mobile, image: cloudinaryRes.url, });
+        let imageurl
+        if (req.file){
+          imageurl = cloudinaryRes.url
+        }
+        else{
+          imageurl = "https://www.366icons.com/media/01/profile-avatar-account-icon-16699.png"
+        }
+        const newUser = new User({ name, email, password: hashedPassword, mobile, image: imageurl, });
         await newUser.save();
 
         //generate token usig Id and role
