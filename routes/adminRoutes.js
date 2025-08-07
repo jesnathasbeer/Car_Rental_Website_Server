@@ -1,5 +1,5 @@
 import e from "express";
-import { adminLogin, adminSignup, getAdminStats, adminProfileUpdate, adminProfileDeactivate, adminLogout, checkAdmin } from "../controllers/adminControllers.js";
+import { adminLogin, adminSignup, getAdminStats, adminProfileUpdate, adminProfileDeactivate, adminLogout, checkAdmin, getAllUsers } from "../controllers/adminControllers.js";
 import { authAdmin } from "../middlewares/authAdmin.js";
 
 const router = e.Router();
@@ -34,5 +34,6 @@ router.get("/logout", adminLogout);
 router.get("/check-admin", authAdmin, checkAdmin);
 
 router.get("/stats", authAdmin, getAdminStats);
+router.get("/users", getAllUsers);
 
 export { router as adminRouter };

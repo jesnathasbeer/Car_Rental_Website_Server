@@ -166,7 +166,7 @@ export const getAdminStats = async (req, res) => {
   try {
     const [totalCars, totalUsers, totalBookings, allBookings] = await Promise.all([
       carModel.countDocuments(),
-      User.countDocuments({ role: "user" }), // count only normal users
+      User.countDocuments(), // count only normal users
       orderModel.countDocuments(),
       orderModel.find({}, "totalAmount") // fetch only totalAmount field
     ]);
@@ -185,5 +185,14 @@ export const getAdminStats = async (req, res) => {
   } catch (error) {
     console.error("Error fetching admin stats:", error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find(); // optionally add filters
+    res.json({ data: users, message: "Fetched all users" });
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Server error" });
   }
 };
