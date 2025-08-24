@@ -7,61 +7,64 @@ import { cloudinaryInstance } from '../config/cloudinary.js';
 const NODE_ENV = process.env.NODE_ENV;
 
 export const userSignup = async (req, res, next) => {
-    try {
-        //collect user data
-        const { name, email, password, confirmPassword, mobile } = req.body;
+  try {
+    const { name, email, password, confirmPassword, mobile } = req.body;
 
-        if (req.file)
-        {
-          var cloudinaryRes = await cloudinaryInstance.uploader.upload(req.file.path);
-        }
-        
-        
-        //data validation
-        if (!name || !email || !password || !confirmPassword || !mobile) {
-            return res.status(400).json({ message: "all fields required" });
-        }
-
-        //check if already exist
-        const userExist = await User.findOne({ email });
-
-        if (userExist) {
-            return res.status(400).json({ message: "user already exist" });
-        }
-
-        //compare with confirm password
-        if (password !== confirmPassword) {
-            return res.status(400).json({ message: "password not same" });
-        }
-
-        //password hashing
-        const hashedPassword = bcrypt.hashSync(password, 10);
-
-        //save to db
-        let imageurl
-        if (req.file){
-          imageurl = cloudinaryRes.url
-        }
-        else{
-          imageurl = "https://www.366icons.com/media/01/profile-avatar-account-icon-16699.png"
-        }
-        const newUser = new User({ name, email, password: hashedPassword, mobile, image: imageurl, });
-        await newUser.save();
-
-        //generate token usig Id and role
-        const token = generateToken(newUser._id, "user");
-        res.cookie("token", token, {
-            sameSite: NODE_ENV === "production" ? "None" : "Lax",
-            secure: NODE_ENV === "production",
-            httpOnly: NODE_ENV === "production",
-        });
-
-        res.json({ data: newUser, message: "signup success" });
-    } catch (error) {
-        res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
-        console.log(error);
+    // ✅ Upload image if provided
+    let imageurl;
+    if (req.file) {
+      const cloudinaryRes = await cloudinaryInstance.uploader.upload(req.file.path);
+      imageurl = cloudinaryRes.url;
+    } else {
+      // ✅ Fallback default avatar
+      imageurl = "https://www.366icons.com/media/01/profile-avatar-account-icon-16699.png";
     }
+
+    // Data validation
+    if (!name || !email || !password || !confirmPassword || !mobile) {
+      return res.status(400).json({ message: "all fields required" });
+    }
+
+    // Check if already exist
+    const userExist = await User.findOne({ email });
+    if (userExist) {
+      return res.status(400).json({ message: "user already exist" });
+    }
+
+    // Compare with confirm password
+    if (password !== confirmPassword) {
+      return res.status(400).json({ message: "password not same" });
+    }
+
+    // Password hashing
+    const hashedPassword = bcrypt.hashSync(password, 10);
+
+    // Save to DB
+    const newUser = new User({
+      name,
+      email: email.toLowerCase(),
+      password: hashedPassword,   // ✅ use hashed, not plain password
+      mobile,
+      image: imageurl,            // ✅ either uploaded or fallback
+    });
+
+    await newUser.save();
+
+    // Generate token
+    const token = generateToken(newUser._id, "user");
+    res.cookie("token", token, {
+      sameSite: NODE_ENV === "production" ? "None" : "Lax",
+      secure: NODE_ENV === "production",
+      httpOnly: NODE_ENV === "production",
+    });
+
+    res.json({ data: newUser, message: "signup success" });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
+    console.log(error);
+  }
 };
+
 
 export const userLogin = async (req, res, next) => {
   try {
@@ -97,6 +100,7 @@ export const userLogin = async (req, res, next) => {
 
     const { password: _, ...userWithoutPassword } = user._doc;
 
+    // ✅ Match frontend expectation
     res.status(200).json({
       data: userWithoutPassword,
       message: "Login success",
@@ -109,118 +113,119 @@ export const userLogin = async (req, res, next) => {
 };
 
 
-export const userProfile = async (req, res, next) => {
-    try {
-        //user Id
-        const userId = req.user.id;
-        const userData = await User.findById(userId).select("-password");
 
-        res.json({ data: userData, message: "user profile fetched" });
-    } catch (error) {
-        res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
-    }
+export const userProfile = async (req, res, next) => {
+  try {
+    //user Id
+    const userId = req.user.id;
+    const userData = await User.findById(userId).select("-password");
+
+    res.json({ data: userData, message: "user profile fetched" });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
+  }
 };
 
 
 export const userProfileUpdate = async (req, res, next) => {
-    try {
-        const { name, email, mobile } = req.body;
-        const userId = req.user.id;
+  try {
+    const { name, email, mobile } = req.body;
+    const userId = req.user.id;
 
-        // Prepare update fields
-        const updateFields = { name, email, mobile };
+    // Prepare update fields
+    const updateFields = { name, email, mobile };
 
-        // Handle image upload to Cloudinary
-        if (req.file) {
-            const cloudinaryRes = await cloudinaryInstance.uploader.upload(req.file.path);
-            updateFields.image = cloudinaryRes.url;
-        }
-
-        // Update user in DB
-        const updatedUser = await User.findByIdAndUpdate(userId, updateFields, {
-            new: true,
-        }).select("-password");
-
-        res.json({ data: updatedUser, message: "User profile updated successfully" });
-
-    } catch (error) {
-        console.error("Profile update failed:", error);
-        res.status(error.statusCode || 500).json({ message: error.message || "Internal server error" });
+    // Handle image upload to Cloudinary
+    if (req.file) {
+      const cloudinaryRes = await cloudinaryInstance.uploader.upload(req.file.path);
+      updateFields.image = cloudinaryRes.url;
     }
+
+    // Update user in DB
+    const updatedUser = await User.findByIdAndUpdate(userId, updateFields, {
+      new: true,
+    }).select("-password");
+
+    res.json({ data: updatedUser, message: "User profile updated successfully" });
+
+  } catch (error) {
+    console.error("Profile update failed:", error);
+    res.status(error.statusCode || 500).json({ message: error.message || "Internal server error" });
+  }
 };
 
 
 
 export const userProfileDeactivate = async (req, res, next) => {
-    try {
-        const { email } = req.body;
+  try {
+    const { email } = req.body;
 
-        // Check if user exists
-        const userExist = await User.findOne({ email });
-        if (!userExist) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        // Check if user is already deactivated
-        if (!userExist.isActive) {
-            return res.status(400).json({ message: "User account is already deactivated" });
-        }
-
-        // Deactivate user
-        userExist.isActive = false;
-        await userExist.save();
-
-        res.json({ message: "User account deactivated successfully" });
-    } catch (error) {
-        res.status(500).json({ message: error.message || "Internal server error" });
+    // Check if user exists
+    const userExist = await User.findOne({ email });
+    if (!userExist) {
+      return res.status(404).json({ message: "User not found" });
     }
+
+    // Check if user is already deactivated
+    if (!userExist.isActive) {
+      return res.status(400).json({ message: "User account is already deactivated" });
+    }
+
+    // Deactivate user
+    userExist.isActive = false;
+    await userExist.save();
+
+    res.json({ message: "User account deactivated successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Internal server error" });
+  }
 };
 
 
 export const userLogout = async (req, res, next) => {
-    try {
-        res.clearCookie("token", {
-            sameSite: NODE_ENV === "production" ? "None" : "Lax",
-            secure: NODE_ENV === "production",
-            httpOnly: NODE_ENV === "production",
-        });
+  try {
+    res.clearCookie("token", {
+      sameSite: NODE_ENV === "production" ? "None" : "Lax",
+      secure: NODE_ENV === "production",
+      httpOnly: NODE_ENV === "production",
+    });
 
-        res.json({ message: "user logout success" });
-    } catch (error) {
-        res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
-    }
+    res.json({ message: "user logout success" });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
+  }
 };
 
 
 export const checkUser = async (req, res, next) => {
-    try {
-        res.status(200).json({
-            message: "User authorized",
-            user: req.user, // ← send user to frontend
-        });
-        // res.json({  message: "user autherized" });
-    } catch (error) {
-        res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
-    }
+  try {
+    res.status(200).json({
+      message: "User authorized",
+      user: req.user, // ← send user to frontend
+    });
+    // res.json({  message: "user autherized" });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
+  }
 };
 
 export const userProfileDelete = async (req, res, next) => {
-    try {
-        const { email } = req.body;
+  try {
+    const { email } = req.body;
 
-        // Check if user exists
-        const userExist = await User.findOne({ email });
-        if (!userExist) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        // Delete user from database
-        await User.findOneAndDelete({ email });
-
-        res.json({ message: "User account deleted successfully" });
-    } catch (error) {
-        res.status(500).json({ message: error.message || "Internal server error" });
+    // Check if user exists
+    const userExist = await User.findOne({ email });
+    if (!userExist) {
+      return res.status(404).json({ message: "User not found" });
     }
+
+    // Delete user from database
+    await User.findOneAndDelete({ email });
+
+    res.json({ message: "User account deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Internal server error" });
+  }
 };
 
 export const userDeactivate = async (req, res, next) => {

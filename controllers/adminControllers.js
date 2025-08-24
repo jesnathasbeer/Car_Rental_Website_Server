@@ -53,46 +53,47 @@ export const adminSignup = async (req, res, next) => {
 };
 
 export const adminLogin = async (req, res, next) => {
-    try {
-        // Collect user data
-        const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-        // Data validation
-        if (!email || !password) {
-            return res.status(400).json({ message: "All fields are required" });
-        }
-
-        // Check if admin exists
-        const adminExist = await Admin.findOne({ email, role: "admin" }); // ✅ Check for role: "admin"
-        if (!adminExist) {
-            return res.status(404).json({ message: "Admin not found" });
-        }
-
-        // Password match with DB
-        const passwordMatch = bcrypt.compareSync(password, adminExist.password);
-        if (!passwordMatch) {
-            return res.status(401).json({ message: "Invalid credentials" });
-        }
-
-        // Check if admin is active
-        if (!adminExist.isActive) {
-            return res.status(403).json({ message: "Admin account is not active" });
-        }
-
-        // Generate token
-        const token = generateToken(adminExist._id, "admin"); // ✅ Assign "admin" role
-        res.cookie("token", token, {
-            sameSite: NODE_ENV === "production" ? "None" : "Lax",
-            secure: NODE_ENV === "production",
-            httpOnly: NODE_ENV === "production",
-        });
-
-        res.json({ data: adminExist, message: "Admin login successful" });
-    } catch (error) {
-        console.error("Admin Login Error:", error); // ✅ Log error for debugging
-        res.status(500).json({ message: "Internal server error" });
+    if (!email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
     }
+
+    const adminExist = await Admin.findOne({ email, role: "admin" }).select("+password");
+    if (!adminExist) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, adminExist.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    if (!adminExist.isActive) {
+      return res.status(403).json({ message: "Admin account is not active" });
+    }
+
+    const token = generateToken(adminExist._id, "admin");
+    res.cookie("token", token, {
+      sameSite: NODE_ENV === "production" ? "None" : "Lax",
+      secure: NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    const { password: _, ...adminWithoutPassword } = adminExist._doc;
+
+    res.status(200).json({
+      data: adminWithoutPassword,
+      message: "Admin login successful",
+    });
+  } catch (error) {
+    console.error("Admin Login Error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
 };
+
 
 export const adminProfileUpdate = async (req, res, next) => {
     try {

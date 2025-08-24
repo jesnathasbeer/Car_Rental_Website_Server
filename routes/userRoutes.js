@@ -19,10 +19,10 @@ router.get("/profile", authUser, userProfile);
 router.put("/update-profile", authUser, upload.single("image") , userProfileUpdate);
 
 //profile-deactivate
-router.put("/deactivate", userProfileDeactivate);
+router.put("/deactivate-user", userProfileDeactivate);
 
 //delete
-router.delete("/delete-account", userProfileDelete);
+router.delete("/delete-user", userProfileDelete);
 
 //logout
 router.get("/logout", userLogout);
