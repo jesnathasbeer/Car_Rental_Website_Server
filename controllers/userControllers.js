@@ -8,49 +8,33 @@ const NODE_ENV = process.env.NODE_ENV;
 
 export const userSignup = async (req, res, next) => {
   try {
-    const { name, email, password, confirmPassword, mobile } = req.body;
+    const { name, email, password, confirmPassword, mobile, image } = req.body;
 
-    // ✅ Upload image if provided
-    let imageurl;
-    if (req.file) {
-      const cloudinaryRes = await cloudinaryInstance.uploader.upload(req.file.path);
-      imageurl = cloudinaryRes.url;
-    } else {
-      // ✅ Fallback default avatar
-      imageurl = "https://www.366icons.com/media/01/profile-avatar-account-icon-16699.png";
-    }
-
-    // Data validation
     if (!name || !email || !password || !confirmPassword || !mobile) {
       return res.status(400).json({ message: "all fields required" });
     }
 
-    // Check if already exist
     const userExist = await User.findOne({ email });
     if (userExist) {
       return res.status(400).json({ message: "user already exist" });
     }
 
-    // Compare with confirm password
     if (password !== confirmPassword) {
       return res.status(400).json({ message: "password not same" });
     }
 
-    // Password hashing
     const hashedPassword = bcrypt.hashSync(password, 10);
 
-    // Save to DB
     const newUser = new User({
       name,
       email: email.toLowerCase(),
-      password: hashedPassword,   // ✅ use hashed, not plain password
+      password: hashedPassword,
       mobile,
-      image: imageurl,            // ✅ either uploaded or fallback
+      image: image || "https://www.366icons.com/media/01/profile-avatar-account-icon-16699.png", // ✅ use Cloudinary URL or fallback
     });
 
     await newUser.save();
 
-    // Generate token
     const token = generateToken(newUser._id, "user");
     res.cookie("token", token, {
       sameSite: NODE_ENV === "production" ? "None" : "Lax",
@@ -64,6 +48,7 @@ export const userSignup = async (req, res, next) => {
     console.log(error);
   }
 };
+
 
 
 export const userLogin = async (req, res, next) => {
