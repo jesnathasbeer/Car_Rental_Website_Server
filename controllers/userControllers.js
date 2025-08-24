@@ -25,29 +25,38 @@ export const userSignup = async (req, res, next) => {
 
     const hashedPassword = bcrypt.hashSync(password, 10);
 
+    // ✅ Handle default image if none is provided
+    const finalImage =
+      image && image.trim() !== ""
+        ? image
+        : "https://www.366icons.com/media/01/profile-avatar-account-icon-16699.png";
+
     const newUser = new User({
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
       mobile,
-      image: image || "https://www.366icons.com/media/01/profile-avatar-account-icon-16699.png", // ✅ use Cloudinary URL or fallback
+      image: finalImage, // ✅ safe image assignment
     });
 
     await newUser.save();
 
     const token = generateToken(newUser._id, "user");
     res.cookie("token", token, {
-      sameSite: NODE_ENV === "production" ? "None" : "Lax",
-      secure: NODE_ENV === "production",
-      httpOnly: NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
     });
 
     res.json({ data: newUser, message: "signup success" });
   } catch (error) {
-    res.status(error.statusCode || 500).json({ message: error.message || "Internal server" });
-    console.log(error);
+    console.error(error);
+    res
+      .status(error.statusCode || 500)
+      .json({ message: error.message || "Internal server" });
   }
 };
+
 
 
 
